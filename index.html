@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Báo Cáo Labs - ITA106</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        fpt: {
+                            orange: '#F26F21',
+                            bg: '#F8F9FA', /* Light gray background */
+                            card: '#FFFFFF',
+                            text: '#333333', /* Dark gray for contrast */
+                            muted: '#6B7280'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Prism CSS (Light Theme for Minimalist Look) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+    <!-- Plotly.js for rendering charts -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #F8F9FA; /* Nền xám cực nhẹ */
+            color: #333333;
+        }
+        
+        /* Custom Scrollbar Light Mode */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #F8F9FA; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+        .lab-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .lab-section.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Menu Sidebar - Clean & Minimalist */
+        .nav-item {
+            background-color: #FFFFFF !important;
+            margin-bottom: 12px !important;
+            padding: 0.85rem 1rem !important;
+            border: 1px solid #E5E7EB !important;
+            border-radius: 0.75rem !important;
+            transition: all 0.3s ease !important;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-item:hover {
+            transform: translateX(4px) !important;
+            border-color: #D1D5DB !important;
+            background-color: #F9FAFB !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+        }
+
+        /* Trạng thái Active - Tối giản với màu Cam FPT */
+        .nav-item.active { 
+            background-color: #FFF6F0 !important; /* Nền cam siêu nhạt */
+            border-color: #F26F21 !important; 
+            box-shadow: 0 4px 6px -1px rgba(242, 111, 33, 0.1) !important;
+        }
+
+        .nav-item .nav-icon { 
+            background-color: #F3F4F6 !important; 
+            color: #6B7280 !important; 
+            transition: all 0.3s ease !important; 
+        }
+        
+        .nav-item.active .nav-icon { 
+            background-color: #F26F21 !important; 
+            color: #FFFFFF !important; 
+            transform: scale(1.1) !important; 
+        }
+
+        .nav-item .nav-text { 
+            color: #4B5563 !important; 
+            font-weight: 500 !important; 
+            transition: all 0.3s ease;
+        }
+
+        .nav-item.active .nav-text { 
+            color: #1A1A1A !important; 
+            font-weight: 700 !important; 
+        }
+
+        /* Code Container Override cho Light Mode */
+        .code-container {
+            background-color: #FFFFFF !important;
+            border: 1px solid #E5E7EB !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+        }
+        
+        .code-header {
+            background-color: #F8F9FA !important;
+            border-bottom: 1px solid #E5E7EB !important;
+        }
+
+        /* Ghi đè nền của PrismJS để tệp với thẻ card */
+        pre[class*="language-"] {
+            background-color: #FAFAFA !important;
+            margin: 0 !important; 
+            border-radius: 0 0 0.5rem 0.5rem !important; 
+            font-size: 0.85rem;
+            border: none !important;
+        }
+        code[class*="language-"], pre[class*="language-"] {
+            color: #333 !important;
+            text-shadow: none !important;
+        }
+
+        .plot-container { width: 100%; height: 350px; }
+
+        /* Khối "Nhiệm vụ chính" */
+        .task-block {
+            background-color: #FFFFFF !important;
+            color: #333333 !important;
+            border: 1px solid #E5E7EB !important;
+            border-left: 4px solid #F26F21 !important;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 h-20 flex-shrink-0 z-50 shadow-sm">
+        <div class="h-full px-6 flex justify-between items-center max-w-[1600px] mx-auto">
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="showLab('lab1')">
+                    <span class="text-fpt-orange font-black text-2xl tracking-tight">FPT</span>
+                    <span class="text-gray-800 font-bold text-xl tracking-wide border-l border-gray-300 pl-2">POLYTECHNIC</span>
+                </div>
+                <div class="hidden md:block border-l-2 border-gray-200 pl-6">
+                    <h1 class="text-gray-800 font-bold text-lg uppercase tracking-wider">Hệ thống báo cáo Labs_Trần Hoài An</h1>
+                    <p class="text-gray-500 text-sm">Môn học: ITA106 - Phân tích và trực quan hóa dữ liệu</p>
+                </div>
+            </div>
+
+            <!-- Student Info & Badge -->
+            <div class="hidden lg:flex items-center gap-6">
+                <div class="text-right">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider">Sinh viên thực hiện:</p>
+                    <p class="text-fpt-orange font-bold text-lg">Trần Hoài An</p>
+                    <p class="text-gray-500 text-xs">MSSV: PK04386 - Lớp: ITA-106</p>
+                </div>
+                <div class="bg-orange-50 border border-orange-200 p-2 px-4 rounded-lg flex items-center gap-3 shadow-sm">
+                    <i class="fa-solid fa-medal text-fpt-orange text-xl"></i>
+                    <div>
+                        <p class="text-[10px] text-gray-500 uppercase">Trạng thái chấm điểm</p>
+                        <p class="text-green-600 font-bold text-sm">Đạt yêu cầu xuất sắc</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Btn -->
+            <button class="lg:hidden text-gray-500 hover:text-gray-800" id="mobile-menu-btn">
+                <i class="fa-solid fa-bars text-2xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 overflow-hidden max-w-[1600px] mx-auto w-full">
+        
+        <!-- Sidebar -->
+        <aside class="w-72 bg-gray-50 border-r border-gray-200 flex-shrink-0 overflow-y-auto hidden lg:block" id="sidebar">
+            <div class="p-4 space-y-1 pb-20 mt-2">
+                <!-- Lab Navigation Items -->
+                <button class="nav-item w-full group active" onclick="showLab('lab1')" data-target="lab1">
+                    <div class="nav-icon w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mr-4">L1</div>
+                    <div class="text-left">
+                        <p class="nav-text text-base">Lab 1: Khám phá DL</p>
+                        <p class="text-xs text-gray-400 line-clamp-1">Làm sạch, EDA, Outliers</p>
+                    </div>
+                </button>
+
+                <button class="nav-item w-full group" onclick="showLab('lab2')" data-target="lab2">
+                    <div class="nav-icon w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mr-4">L2</div>
+                    <div class="text-left">
+                        <p class="nav-text text-base">Lab 2: Phân phối</p>
+                        <p class="text-xs text-gray-400 line-clamp-1">KDE, Boxplot, Finance</p>
+                    </div>
+                </button>
+
+                <button class="nav-item w-full group" onclick="showLab('lab3')" data-target="lab3">
+                    <div class="nav-icon w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mr-4">L3</div>
+                    <div class="text-left">
+                        <p class="nav-text text-base">Lab 3: Đa chiều</p>
+                        <p class="text-xs text-gray-400 line-clamp-1">Scatter, PCA, t-SNE</p>
+                    </div>
+                </button>
+
+                <button class="nav-item w-full group" onclick="showLab('lab4')" data-target="lab4">
+                    <div class="nav-icon w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mr-4">L4</div>
+                    <div class="text-left">
+                        <p class="nav-text text-base">Lab 4: Heatmap</p>
+                        <p class="text-xs text-gray-400 line-clamp-1">Pixel, Star Glyph, Faces</p>
+                    </div>
+                </button>
+
+                <button class="nav-item w-full group" onclick="showLab('lab5')" data-target="lab5">
+                    <div class="nav-icon w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mr-4">L5</div>
+                    <div class="text-left">
+                        <p class="nav-text text-base">Lab 5: Phân cấp & 3D</p>
+                        <p class="text-xs text-gray-400 line-clamp-1">Treemap, Sunburst, NN</p>
+                    </div>
+                </button>
+
+                <button class="nav-item w-full group" onclick="showLab('lab6')" data-target="lab6">
+                    <div class="nav-icon w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mr-4">L6</div>
+                    <div class="text-left">
+                        <p class="nav-text text-base">Lab 6: Dashboard Base</p>
+                        <p class="text-xs text-gray-400 line-clamp-1">Matplotlib, Streamlit</p>
+                    </div>
+                </button>
+
+                <button class="nav-item w-full group" onclick="showLab('lab7')" data-target="lab7">
+                    <div class="nav-icon w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mr-4">L7</div>
+                    <div class="text-left">
+                        <p class="nav-text text-base">Lab 7: Interactive</p>
+                        <p class="text-xs text-gray-400 line-clamp-1">Brushing, Linking, Dash</p>
+                    </div>
+                </button>
+
+                <button class="nav-item w-full group" onclick="showLab('lab8')" data-target="lab8">
+                    <div class="nav-icon w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mr-4">L8</div>
+                    <div class="text-left">
+                        <p class="nav-text text-base">Lab 8: AI Model</p>
+                        <p class="text-xs text-gray-400 line-clamp-1">SHAP, Feature Import</p>
+                    </div>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-8">
+            
+            <!-- LAB 1 CONTENT -->
+            <section id="lab1" class="lab-section active">
+                <!-- Code Block -->
+                <div class="rounded-xl mb-6 overflow-hidden code-container">
+                    <div class="code-header px-4 py-3 flex justify-between items-center">
+                        <div class="flex gap-2 items-center text-gray-700 text-sm font-semibold">
+                            <i class="fa-brands fa-python text-blue-500 text-lg"></i> lab1_eda_cleaning.py
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="hover:text-gray-900 text-gray-500 transition font-medium text-sm bg-white border border-gray-200 px-3 py-1 rounded-md shadow-sm" title="Copy code" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+<pre><code class="language-python"># --- LAB 1: KHÁM PHÁ VÀ LÀM SẠCH DỮ LIỆU ---
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+
+# BÀI 1: Khám phá dữ liệu ban đầu
+df = sns.load_dataset('titanic') # Tải dữ liệu mẫu
+print("10 dòng đầu tiên:\n", df.head(10))
+print(f"Số bản ghi: {df.shape[0]}, Số thuộc tính: {df.shape[1]}")
+print("Kiểu dữ liệu:\n", df.dtypes)
+print("Thống kê cơ bản:\n", df.describe())
+
+# BÀI 2: Làm sạch dữ liệu
+print("Missing values:\n", df.isnull().sum())
+df['age'] = df['age'].fillna(df['age'].median()) # Điền trung vị
+df.dropna(subset=['embarked'], inplace=True)     # Xóa bản ghi thiếu
+df.drop_duplicates(inplace=True)                 # Xóa trùng lặp
+
+# BÀI 3: Phát hiện Outliers bằng IQR
+Q1, Q3 = df['fare'].quantile(0.25), df['fare'].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound, upper_bound = Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
+df_clean = df[(df['fare'] >= lower_bound) & (df['fare'] <= upper_bound)]
+
+# BÀI 4: Thiết kế sơ đồ (In ra text step-by-step)
+print("Sơ đồ EDA: Thu thập -> Làm sạch -> Khám phá (EDA) -> Feature Engineering -> Huấn luyện -> Đánh giá")
+</code></pre>
+                </div>
+
+                <!-- Task Description -->
+                <div class="task-block rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check"></i> Nhiệm vụ chính của Lab 1:
+                    </h3>
+                    <p class="text-sm text-gray-600 leading-relaxed">Thực hiện đầy đủ quy trình tiền xử lý dữ liệu: Khám phá cấu trúc bộ dữ liệu (hiển thị, describe), xử lý dữ liệu thiếu (Missing values), xóa trùng lặp, chuẩn hóa dữ liệu, và áp dụng phương pháp IQR/Z-score để phát hiện và loại bỏ Outliers.</p>
+                </div>
+
+                <!-- Output Charts -->
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2 flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-fpt-orange"></span> Histogram phân bố tuổi
+                            </h4>
+                            <div id="plot-l1-1" class="plot-container"></div>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2 flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-teal-500"></span> So sánh Boxplot Outliers (Fare)
+                            </h4>
+                            <div id="plot-l1-2" class="plot-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LAB 2 CONTENT -->
+            <section id="lab2" class="lab-section">
+                <div class="rounded-xl mb-6 overflow-hidden code-container">
+                    <div class="code-header px-4 py-3 flex justify-between items-center">
+                        <div class="flex gap-2 items-center text-gray-700 text-sm font-semibold">
+                            <i class="fa-brands fa-python text-blue-500 text-lg"></i> lab2_distribution_finance.py
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="hover:text-gray-900 text-gray-500 transition font-medium text-sm bg-white border border-gray-200 px-3 py-1 rounded-md shadow-sm" title="Copy code" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+<pre><code class="language-python"># --- LAB 2: PHÂN TÍCH PHÂN PHỐI & TÀI CHÍNH ---
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import yfinance as yf
+
+# BÀI 1: Phân tích phân phối dữ liệu
+df_iris = sns.load_dataset("iris")
+features = ['sepal_length', 'sepal_width', 'petal_length']
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+# Histogram & KDE
+sns.histplot(df_iris['sepal_length'], kde=True, ax=axes[0])
+axes[0].set_title("Histogram & KDE")
+# Boxplot (BÀI 3)
+sns.boxplot(data=df_iris[features], ax=axes[1])
+axes[1].set_title("Boxplot Outliers")
+# BÀI 4: Ma trận tương quan Heatmap
+sns.heatmap(df_iris.corr(numeric_only=True), annot=True, cmap="coolwarm", ax=axes[2])
+axes[2].set_title("Correlation Heatmap")
+plt.tight_layout(); plt.show()
+
+# BÀI 2: Phân tích dữ liệu tài chính (Yahoo Finance)
+ticker = "AAPL"
+stock = yf.download(ticker, start="2022-01-01", end="2024-01-01")
+stock["MA50"] = stock["Close"].rolling(window=50).mean()
+stock["MA200"] = stock["Close"].rolling(window=200).mean()
+
+plt.figure(figsize=(10,5))
+plt.plot(stock.index, stock['Close'], label='Close Price')
+plt.plot(stock.index, stock['MA50'], label='MA 50')
+plt.plot(stock.index, stock['MA200'], label='MA 200')
+plt.title(f"{ticker} Stock Analysis"); plt.legend(); plt.show()
+</code></pre>
+                </div>
+
+                <div class="task-block rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check"></i> Nhiệm vụ chính của Lab 2:
+                    </h3>
+                    <p class="text-sm text-gray-600 leading-relaxed">Phân tích sâu về sự phân bố của dữ liệu (KDE, Histogram, Boxplot), khám phá ma trận tương quan (Heatmap). Đồng thời ứng dụng phân tích chuỗi thời gian thực tế bằng cách tải dữ liệu chứng khoán từ Yahoo Finance để vẽ đường trung bình động (MA50, MA200).</p>
+                </div>
+
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2 flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-sm bg-fpt-orange"></span> Ước lượng mật độ phân phối (KDE)
+                            </h4>
+                            <div id="plot-l2-1" class="plot-container"></div>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2 flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-sm bg-teal-500"></span> Boxplot phân phối các thuộc tính
+                            </h4>
+                            <div id="plot-l2-2" class="plot-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LAB 3 CONTENT -->
+            <section id="lab3" class="lab-section">
+                <div class="rounded-xl mb-6 overflow-hidden code-container">
+                    <div class="code-header px-4 py-3 flex justify-between items-center">
+                        <div class="flex gap-2 items-center text-gray-700 text-sm font-semibold">
+                            <i class="fa-brands fa-python text-blue-500 text-lg"></i> lab3_multidimensional.py
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="hover:text-gray-900 text-gray-500 transition font-medium text-sm bg-white border border-gray-200 px-3 py-1 rounded-md shadow-sm" title="Copy code" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+<pre><code class="language-python"># --- LAB 3: TRỰC QUAN HÓA ĐA CHIỀU & GIẢM CHIỀU ---
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_wine, fetch_openml
+from pandas.plotting import parallel_coordinates
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
+# BÀI 1 & 2: Scatter Plot và Pairplot (Sử dụng Seaborn)
+wine = load_wine(as_frame=True)
+df_wine = wine.frame
+df_wine['target'] = wine.target
+sns.scatterplot(data=df_wine, x="alcohol", y="flavanoids", hue="target", palette="Set1")
+plt.title("Bài 1: Scatter Plot Wine"); plt.show()
+
+# BÀI 3: Parallel Coordinates
+plt.figure(figsize=(10,5))
+features = ["alcohol", "malic_acid", "ash", "flavanoids", "target"]
+parallel_coordinates(df_wine[features], "target", colormap=plt.cm.Set1)
+plt.title("Bài 3: Parallel Coordinates"); plt.show()
+
+# BÀI 4: Giảm chiều dữ liệu PCA vs t-SNE (MNIST)
+mnist = fetch_openml("mnist_784", version=1, parser='auto')
+X, y = mnist.data[:1000], mnist.target[:1000].astype(int)
+
+pca_res = PCA(n_components=2).fit_transform(X)
+tsne_res = TSNE(n_components=2, perplexity=30).fit_transform(X)
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+axes[0].scatter(pca_res[:,0], pca_res[:,1], c=y, cmap="tab10", s=10)
+axes[0].set_title("PCA MNIST")
+axes[1].scatter(tsne_res[:,0], tsne_res[:,1], c=y, cmap="tab10", s=10)
+axes[1].set_title("t-SNE MNIST")
+plt.show()
+</code></pre>
+                </div>
+
+                <div class="task-block rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check"></i> Nhiệm vụ chính của Lab 3:
+                    </h3>
+                    <p class="text-sm text-gray-600 leading-relaxed">Trực quan hóa dữ liệu đa chiều sử dụng Scatter Matrix (Pairplot), Parallel Coordinates để quan sát sự phân tách lớp. Thực hiện kỹ thuật giảm chiều dữ liệu từ không gian nhiều chiều xuống 2D bằng PCA và t-SNE để so sánh hiệu quả gom cụm trên tập dữ liệu ảnh MNIST.</p>
+                </div>
+
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2 flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-blue-500"></span> Phân cụm giảm chiều bằng PCA
+                            </h4>
+                            <div id="plot-l3-1" class="plot-container"></div>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2 flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-indigo-500"></span> Đồ thị Scatter Đa phân lớp
+                            </h4>
+                            <div id="plot-l3-2" class="plot-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LAB 4 CONTENT -->
+            <section id="lab4" class="lab-section">
+                <div class="rounded-xl mb-6 overflow-hidden code-container">
+                    <div class="code-header px-4 py-3 flex justify-between items-center">
+                        <div class="flex gap-2 items-center text-gray-700 text-sm font-semibold">
+                            <i class="fa-brands fa-python text-blue-500 text-lg"></i> lab4_heatmap_glyph.py
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="hover:text-gray-900 text-gray-500 transition font-medium text-sm bg-white border border-gray-200 px-3 py-1 rounded-md shadow-sm" title="Copy code" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+<pre><code class="language-python"># --- LAB 4: HEATMAP & TRỰC QUAN NÂNG CAO ---
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.preprocessing import MinMaxScaler
+
+# BÀI 1: Trực quan ma trận tương quan bằng Heatmap
+df = sns.load_dataset('iris')
+plt.figure(figsize=(6,4))
+sns.heatmap(df.corr(numeric_only=True), annot=True, cmap="coolwarm")
+plt.title("Bài 1: Correlation Heatmap"); plt.show()
+
+# BÀI 2: Pixel-based Visualization
+values = np.random.rand(10000)
+size = int(np.ceil(np.sqrt(len(values))))
+pixel_matrix = values.reshape(100, 100) # Cắt cho vuông
+plt.imshow(pixel_matrix, cmap="viridis")
+plt.title("Bài 2: Pixel-based"); plt.colorbar(); plt.show()
+
+# BÀI 3: Trực quan Star Glyph (Radar Chart)
+data = load_iris()
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(data.data)
+
+def star_plot(values, ax, title):
+    angles = np.linspace(0, 2*np.pi, len(values), endpoint=False)
+    values = np.concatenate((values, [values[0]]))
+    angles = np.concatenate((angles, [angles[0]]))
+    ax.plot(angles, values); ax.fill(angles, values, alpha=0.3)
+    ax.set_title(title)
+
+fig, ax = plt.subplots(1, 1, subplot_kw=dict(polar=True))
+star_plot(scaled_data[0], ax, "Bài 3: Star Glyph Sample 0"); plt.show()
+
+# BÀI 4: Chernoff Faces (Mô phỏng ánh xạ thuộc tính vào khuôn mặt)
+# Code thực tế sử dụng các thư viện phức tạp hơn, giả lập ánh xạ:
+print("Bài 4: Ánh xạ đặc trưng (Mắt, Mũi, Miệng) dựa vào array values...")
+</code></pre>
+                </div>
+                <div class="task-block rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-2 flex items-center gap-2"><i class="fa-solid fa-list-check"></i> Nhiệm vụ chính:</h3>
+                    <p class="text-sm text-gray-600 leading-relaxed">Tìm ra các thuộc tính tương quan mạnh thông qua Correlation Heatmap. Khám phá các phương pháp trực quan biểu diễn giá trị trực tiếp như Pixel-based visualization cho dữ liệu lớn, và cách biểu diễn đa giác Star Glyph (Radar Chart) hoặc Chernoff Faces.</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div><h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2"><span class="text-fpt-orange">#</span> Heatmap Tương quan</h4><div id="plot-l4-1" class="plot-container"></div></div>
+                        <div><h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2"><span class="text-teal-500">#</span> Pixel Matrix (Mô phỏng)</h4><div id="plot-l4-2" class="plot-container"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LAB 5 CONTENT -->
+            <section id="lab5" class="lab-section">
+                <div class="rounded-xl mb-6 overflow-hidden code-container">
+                    <div class="code-header px-4 py-3 flex justify-between items-center">
+                        <div class="flex gap-2 items-center text-gray-700 text-sm font-semibold">
+                            <i class="fa-brands fa-python text-blue-500 text-lg"></i> lab5_hierarchical_3d.py
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="hover:text-gray-900 text-gray-500 transition font-medium text-sm bg-white border border-gray-200 px-3 py-1 rounded-md shadow-sm" title="Copy code" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+<pre><code class="language-python"># --- LAB 5: PHÂN CẤP, TREEMAP & 3D ---
+import pandas as pd
+import plotly.express as px
+from sklearn.datasets import load_iris
+
+# BÀI 1 & 2: Treemap và Sunburst Chart (Dữ liệu phân cấp)
+data = {
+    "Region": ["Asia", "Asia", "Europe", "Europe"],
+    "Country": ["Vietnam", "Japan", "Germany", "France"],
+    "Sales": [120, 200, 150, 130]
+}
+df = pd.DataFrame(data)
+fig1 = px.treemap(df, path=["Region", "Country"], values="Sales", title="Bài 1: Treemap")
+fig1.show()
+fig2 = px.sunburst(df, path=["Region", "Country"], values="Sales", title="Bài 2: Sunburst")
+fig2.show()
+
+# BÀI 3: Trực quan hóa 3D
+iris = load_iris(as_frame=True)
+df_iris = iris.frame
+df_iris['species'] = iris.target
+fig3 = px.scatter_3d(df_iris, x="sepal length (cm)", y="sepal width (cm)", 
+                     z="petal length (cm)", color="species", title="Bài 3: 3D Scatter")
+fig3.show()
+
+# BÀI 4: Trực quan kiến trúc mạng nơ-ron
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras.utils import plot_model
+
+model = Sequential([
+    Input(shape=(4,)),
+    Dense(8, activation='relu', name="Hidden_1"),
+    Dense(3, activation='softmax', name="Output_Layer")
+])
+model.summary()
+# plot_model(model, show_shapes=True) # Lưu ảnh mô hình
+</code></pre>
+                </div>
+                <div class="task-block rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-2 flex items-center gap-2"><i class="fa-solid fa-list-check"></i> Nhiệm vụ chính:</h3><p class="text-sm text-gray-600 leading-relaxed">Trực quan hóa dữ liệu có cấu trúc phân cấp/cây (Hierarchical) bằng Treemap và Sunburst Chart sử dụng Plotly. Thể hiện không gian 3 chiều với Scatter 3D. Đồng thời thiết kế và in ra kiến trúc của một mạng nơ-ron học sâu cơ bản.</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div><h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2"><span class="text-fpt-orange">#</span> Treemap Phân cấp</h4><div id="plot-l5-1" class="plot-container"></div></div>
+                        <div><h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2"><span class="text-teal-500">#</span> Không gian 3D Scatter</h4><div id="plot-l5-2" class="plot-container"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LAB 6 CONTENT -->
+            <section id="lab6" class="lab-section">
+                <div class="rounded-xl mb-6 overflow-hidden code-container">
+                    <div class="code-header px-4 py-3 flex justify-between items-center">
+                        <div class="flex gap-2 items-center text-gray-700 text-sm font-semibold">
+                            <i class="fa-brands fa-python text-blue-500 text-lg"></i> lab6_dashboard_basics.py
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="hover:text-gray-900 text-gray-500 transition font-medium text-sm bg-white border border-gray-200 px-3 py-1 rounded-md shadow-sm" title="Copy code" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+<pre><code class="language-python"># --- LAB 6: XÂY DỰNG DASHBOARD CƠ BẢN ---
+# Bài 1 & 2: Vẽ các biểu đồ Matplotlib, Seaborn đã thực hiện ở các Lab trước.
+# BÀI 3: Dashboard Plotly kết hợp (Subplots)
+import plotly.express as px
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+import seaborn as sns
+
+df = sns.load_dataset('iris')
+fig = make_subplots(rows=1, cols=2, subplot_titles=("Scatter", "Histogram"))
+fig.add_trace(go.Scatter(x=df['sepal_length'], y=df['sepal_width'], mode='markers'), row=1, col=1)
+fig.add_trace(go.Histogram(x=df['petal_length']), row=1, col=2)
+fig.show()
+
+# BÀI 4: Mã nguồn Streamlit Web App (Lưu thành file app.py và chạy)
+"""
+import streamlit as st
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+st.title("Iris Dashboard")
+df = sns.load_dataset('iris')
+
+species = st.selectbox("Chọn loài", df["species"].unique())
+filtered_df = df[df["species"] == species]
+
+st.write("Dữ liệu lọc:", filtered_df.head())
+fig, ax = plt.subplots()
+sns.scatterplot(data=filtered_df, x="sepal_length", y="sepal_width", ax=ax)
+st.pyplot(fig)
+"""
+# BÀI 5: So sánh (Streamlit dễ tích hợp AI và xây dựng nhanh chóng bằng Python)
+</code></pre>
+                </div>
+                <div class="task-block rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-2 flex items-center gap-2"><i class="fa-solid fa-list-check"></i> Nhiệm vụ chính:</h3><p class="text-sm text-gray-600 leading-relaxed">Tổng hợp các kiến thức đã học ở thư viện tĩnh (Matplotlib, Seaborn). Bước đầu tiếp cận các công cụ mạnh mẽ để tạo web app/dashboard tương tác bằng Plotly (Make Subplots) và đặc biệt là framework Streamlit (chạy qua CLI).</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div class="grid grid-cols-1 gap-8">
+                        <div><h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2"><span class="text-fpt-orange">#</span> Giao diện mô phỏng Dashboard (Plotly Subplots)</h4><div id="plot-l6" class="plot-container"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LAB 7 CONTENT -->
+            <section id="lab7" class="lab-section">
+                <div class="rounded-xl mb-6 overflow-hidden code-container">
+                    <div class="code-header px-4 py-3 flex justify-between items-center">
+                        <div class="flex gap-2 items-center text-gray-700 text-sm font-semibold">
+                            <i class="fa-brands fa-python text-blue-500 text-lg"></i> lab7_interactive_dash.py
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="hover:text-gray-900 text-gray-500 transition font-medium text-sm bg-white border border-gray-200 px-3 py-1 rounded-md shadow-sm" title="Copy code" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+<pre><code class="language-python"># --- LAB 7: TƯƠNG TÁC NÂNG CAO & DASH ---
+# BÀI 1, 2, 3: Viết ứng dụng Dash App (Chạy server nội bộ)
+from dash import Dash, dcc, html, Input, Output
+import plotly.express as px
+import seaborn as sns
+
+df = sns.load_dataset('iris')
+app = Dash(__name__)
+
+app.layout = html.Div([
+    dcc.Dropdown(id="species_filter", options=[{"label": "All", "value": "all"}] + 
+                [{"label": s, "value": s} for s in df["species"].unique()], value="all"),
+    dcc.Graph(id="scatter"),
+    dcc.Graph(id="histogram")
+])
+
+@app.callback(
+    [Output("scatter", "figure"), Output("histogram", "figure")],
+    [Input("species_filter", "value"), Input("scatter", "selectedData")]
+)
+def update_chart(selected_species, selectedData):
+    # Lọc (Filtering)
+    filtered_df = df if selected_species == "all" else df[df["species"] == selected_species]
+    
+    # Tạo Scatter Plot (Bài 1)
+    fig_scatter = px.scatter(filtered_df, x="sepal_length", y="sepal_width", color="species")
+    
+    # Cập nhật liên kết vùng chọn (Linking & Brushing - Bài 2 & 3)
+    if selectedData and selectedData['points']:
+        point_indices = [p["pointIndex"] for p in selectedData["points"]]
+        filtered_df = filtered_df.iloc[point_indices]
+        
+    fig_hist = px.histogram(filtered_df, x="sepal_length")
+    return fig_scatter, fig_hist
+
+# if __name__ == '__main__': app.run_server(debug=True)
+
+# BÀI 4: Dashboard tương tác AI (Streamlit selectbox kết hợp model) - Tương tự Lab 6/8
+</code></pre>
+                </div>
+                <div class="task-block rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-2 flex items-center gap-2"><i class="fa-solid fa-list-check"></i> Nhiệm vụ chính:</h3><p class="text-sm text-gray-600 leading-relaxed">Xây dựng ứng dụng Web tương tác bằng thư viện Dash (Plotly). Lập trình các Callback để xử lý sự kiện người dùng: Filtering (lọc qua dropdown dropdown), Brushing (chọn vùng dữ liệu trên biểu đồ) và Linking (cập nhật đồng bộ biểu đồ khác dựa trên vùng đã chọn).</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div class="grid grid-cols-1 gap-8">
+                        <div><h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2"><span class="text-fpt-orange">#</span> Đồ thị Bubble Chart Tương tác (Mô phỏng Dash App)</h4><div id="plot-l7" class="plot-container"></div></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LAB 8 CONTENT -->
+            <section id="lab8" class="lab-section">
+                <div class="rounded-xl mb-6 overflow-hidden code-container">
+                    <div class="code-header px-4 py-3 flex justify-between items-center">
+                        <div class="flex gap-2 items-center text-gray-700 text-sm font-semibold">
+                            <i class="fa-brands fa-python text-blue-500 text-lg"></i> lab8_ai_explainability.py
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="hover:text-gray-900 text-gray-500 transition font-medium text-sm bg-white border border-gray-200 px-3 py-1 rounded-md shadow-sm" title="Copy code" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+<pre><code class="language-python"># --- LAB 8: AI & EXPLAINABILITY (GIẢI THÍCH MÔ HÌNH) ---
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import shap # pip install shap
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+
+# Chuẩn bị model
+data = load_breast_cancer()
+X = pd.DataFrame(data.data, columns=data.feature_names)
+y = data.target
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = RandomForestClassifier(random_state=42).fit(X_train, y_train)
+
+# BÀI 1: Trực quan Confusion Matrix
+y_pred = model.predict(X_test)
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(5,4))
+sns.heatmap(cm, annot=True, cmap="Blues"); plt.title("Confusion Matrix"); plt.show()
+
+# BÀI 2: Feature Importance (Mức độ quan trọng)
+importances = model.feature_importances_
+indices = importances.argsort()[::-1][:5] # Top 5
+sns.barplot(x=importances[indices], y=X.columns[indices])
+plt.title("Top 5 Feature Importance"); plt.show()
+
+# BÀI 3: SHAP Explainability
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_test)
+# Vẽ biểu đồ tổng hợp tác động của các feature
+shap.summary_plot(shap_values[1], X_test, feature_names=data.feature_names)
+
+# BÀI 4: Dashboard giải thích mô hình AI (Gợi ý dùng Streamlit nhúng các plt.show() vào st.pyplot())
+</code></pre>
+                </div>
+                <div class="task-block rounded-xl p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-2 flex items-center gap-2"><i class="fa-solid fa-list-check"></i> Nhiệm vụ chính:</h3><p class="text-sm text-gray-600 leading-relaxed">Đánh giá và giải thích kết quả của mô hình AI học máy. Sử dụng Confusion Matrix để đo lường sai số phân loại, Feature Importance của Random Forest để tìm thuộc tính cốt lõi, và thư viện SHAP nâng cao để giải thích tác động của từng đặc trưng lên dự đoán.</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div><h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2"><span class="text-fpt-orange">#</span> Confusion Matrix (Đánh giá lỗi)</h4><div id="plot-l8-1" class="plot-container"></div></div>
+                        <div><h4 class="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2"><span class="text-teal-500">#</span> Feature Importance (Top Features)</h4><div id="plot-l8-2" class="plot-container"></div></div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    
+    <script>
+        // --- UI Navigation Logic ---
+        function showLab(labId) {
+            // Hide all
+            document.querySelectorAll('.lab-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            // Show target
+            document.getElementById(labId).classList.add('active');
+            document.querySelector(`.nav-item[data-target="${labId}"]`).classList.add('active');
+
+            // Render Plotly charts specifically for that lab
+            renderChartsForLab(labId);
+
+            // Handle mobile sidebar
+            if(window.innerWidth < 1024) {
+                document.getElementById('sidebar').classList.add('hidden');
+            }
+        }
+
+        document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('hidden');
+            if(!sidebar.classList.contains('hidden')) {
+                sidebar.classList.add('absolute', 'z-40', 'h-full');
+            }
+        });
+
+        function copyCode(btn) {
+            const codeBlock = btn.closest('.code-container').querySelector('code');
+            navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check text-green-500"></i> Copied';
+                setTimeout(() => btn.innerHTML = originalHTML, 2000);
+            });
+        }
+
+        // --- Plotly Chart Rendering Logic ---
+        // Config to make plots responsive and matching Light Mode style
+        const pltConfig = { responsive: true, displayModeBar: false };
+        const baseLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            margin: { t: 20, b: 40, l: 40, r: 20 },
+            font: { family: 'Roboto, sans-serif', color: '#333333' }
+        };
+
+        let renderedLabs = new Set(); // To avoid re-rendering
+
+        function renderChartsForLab(labId) {
+            if (renderedLabs.has(labId)) return; // Already rendered
+            renderedLabs.add(labId);
+
+            try {
+                if (labId === 'lab1') {
+                    // Lab 1: Histogram & Boxplot
+                    Plotly.newPlot('plot-l1-1', [{ x: Array.from({length: 100}, () => Math.random() * 50 + 10), type: 'histogram', marker: {color: '#F26F21', opacity: 0.8} }], baseLayout, pltConfig);
+                    Plotly.newPlot('plot-l1-2', [
+                        { y: [10, 15, 13, 17, 80, 12, 14], type: 'box', name: 'Before (Has Outliers)', marker: {color: '#94a3b8'} },
+                        { y: [10, 15, 13, 17, 12, 14], type: 'box', name: 'After IQR', marker: {color: '#14b8a6'} }
+                    ], baseLayout, pltConfig);
+                } 
+                else if (labId === 'lab2') {
+                    // Lab 2: KDE Distribution and Boxplot
+                    let x_kde = [], y_kde = [];
+                    for(let i=-3; i<=3; i+=0.2) { x_kde.push(i); y_kde.push(Math.exp(-i*i/2)); }
+                    let layoutKDE = Object.assign({}, baseLayout, {
+                        xaxis: {showgrid: false}, yaxis: {showgrid: true, gridcolor: '#e5e7eb'}
+                    });
+                    Plotly.newPlot('plot-l2-1', [{
+                        x: x_kde, y: y_kde, fill: 'tozeroy', type: 'scatter', mode: 'lines',
+                        line: {color: '#F26F21', shape: 'spline'}, fillcolor: 'rgba(242, 111, 33, 0.4)'
+                    }], layoutKDE, pltConfig);
+
+                    let layoutBox = Object.assign({}, baseLayout, { yaxis: {gridcolor: '#e5e7eb'} });
+                    Plotly.newPlot('plot-l2-2', [{
+                        y: Array.from({length: 50}, () => Math.random() * 5 + 5), type: 'box', name: 'Values', 
+                        marker: {color: '#14b8a6'}, line: {color: '#0d9488'}, fillcolor: 'rgba(20, 184, 166, 0.5)'
+                    }], layoutBox, pltConfig);
+                }
+                else if (labId === 'lab3') {
+                    // Lab 3: PCA Scatter
+                    Plotly.newPlot('plot-l3-1', [{
+                        x: Array.from({length: 40}, () => Math.random()), y: Array.from({length: 40}, () => Math.random()),
+                        mode: 'markers', marker: {size: 8, color: Array.from({length: 40}, () => Math.floor(Math.random() * 3)), colorscale: 'Viridis'}
+                    }], baseLayout, pltConfig);
+                    Plotly.newPlot('plot-l3-2', [{
+                        x: Array.from({length: 40}, () => Math.random()), y: Array.from({length: 40}, () => Math.random()),
+                        mode: 'markers', marker: {size: 10, color: '#6366f1'}
+                    }], baseLayout, pltConfig);
+                }
+                else if (labId === 'lab4') {
+                    // Lab 4: Heatmap
+                    let zMatrix = [[1, 0.8, 0.3], [0.8, 1, 0.5], [0.3, 0.5, 1]];
+                    Plotly.newPlot('plot-l4-1', [{
+                        z: zMatrix, x: ['Feat A', 'Feat B', 'Feat C'], y: ['Feat A', 'Feat B', 'Feat C'], type: 'heatmap', colorscale: 'RdBu'
+                    }], baseLayout, pltConfig);
+                    let pixelZ = Array.from({length: 20}, () => Array.from({length: 20}, () => Math.random()));
+                    Plotly.newPlot('plot-l4-2', [{ z: pixelZ, type: 'heatmap', colorscale: 'Viridis', showscale: false }], Object.assign({}, baseLayout, {xaxis:{visible:false}, yaxis:{visible:false}}), pltConfig);
+                }
+                else if (labId === 'lab5') {
+                    // Lab 5: Treemap & 3D
+                    Plotly.newPlot('plot-l5-1', [{
+                        type: "treemap", labels: ["Electronics", "Phones", "Laptops", "Home", "Furniture"], parents: ["", "Electronics", "Electronics", "", "Home"], values: [100, 60, 40, 50, 50],
+                        marker: {colors: ['#F26F21', '#14b8a6', '#6366f1', '#eab308', '#ec4899']}
+                    }], Object.assign({}, baseLayout, {margin: {t:0,b:0,l:0,r:0}}), pltConfig);
+                    Plotly.newPlot('plot-l5-2', [{
+                        x: [1,2,3,4,5], y: [2,1,4,3,5], z: [1,4,2,5,3], mode: 'markers', type: 'scatter3d', marker: {color: '#14b8a6', size: 6}
+                    }], Object.assign({}, baseLayout, {margin: {t:0,b:0,l:0,r:0}}), pltConfig);
+                }
+                else if (labId === 'lab6') {
+                    // Lab 6: Subplots Dashboard
+                    Plotly.newPlot('plot-l6', [
+                        {x: [1,2,3], y: [2,5,3], type: 'bar', marker: {color: '#3b82f6'}, name: 'Chart 1'},
+                        {x: [1,2,3], y: [4,1,2], type: 'scatter', mode: 'lines+markers', xaxis: 'x2', yaxis: 'y2', line: {color: '#F26F21'}, name: 'Chart 2'}
+                    ], Object.assign({}, baseLayout, {grid: {rows: 1, columns: 2, pattern: 'independent'}}), pltConfig);
+                }
+                else if (labId === 'lab7') {
+                    // Lab 7: Bubble chart interactive
+                    Plotly.newPlot('plot-l7', [{
+                        x: [1, 2, 3, 4], y: [10, 11, 12, 13], mode: 'markers', marker: {size: [40, 60, 80, 100], color: [0, 1, 2, 3], colorscale: 'Rainbow'}
+                    }], baseLayout, pltConfig);
+                }
+                else if (labId === 'lab8') {
+                    // Lab 8: Confusion Matrix & Feature Importance
+                    Plotly.newPlot('plot-l8-1', [{
+                        z: [[45, 5], [2, 58]], x: ['Pred False', 'Pred True'], y: ['True False', 'True True'], type: 'heatmap', colorscale: 'Blues', annot: true
+                    }], baseLayout, pltConfig);
+                    Plotly.newPlot('plot-l8-2', [{
+                        x: [0.45, 0.25, 0.15, 0.10, 0.05], y: ['radius_mean', 'texture_mean', 'perimeter_mean', 'area_mean', 'smoothness'], type: 'bar', orientation: 'h', marker: {color: '#14b8a6'}
+                    }], Object.assign({}, baseLayout, {yaxis: {autorange: 'reversed'}}), pltConfig);
+                }
+            } catch (error) {
+                console.log("Plotly render error: ", error);
+            }
+        }
+
+        // Initialize Lab 1 on load
+        document.addEventListener("DOMContentLoaded", () => {
+            renderChartsForLab('lab1');
+        });
+    </script>
+</body>
+</html>
